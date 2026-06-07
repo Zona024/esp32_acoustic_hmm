@@ -1,0 +1,35 @@
+# ----------------------------------------------------------------------
+# ESP-IDF Specific
+# ----------------------------------------------------------------------
+
+# The complete build directory. This is where all compiled binaries
+# (.bin, .elf, .map), CMake caches, and Ninja build scripts are stored. 
+# This directory grows to hundreds of megabytes and should not be tracked in Git.
+build/
+
+# Old configurations. The tool idf.py saves a backup of the previous 
+# configuration upon every change made via menuconfig.
+sdkconfig.old
+
+# Locally stored external ESP components. These are downloaded by the 
+# package manager and should not be versioned.
+managed_components/
+
+# ----------------------------------------------------------------------
+# Editor, LSP & C/C++ Tooling (Neovim / Clangd)
+# ----------------------------------------------------------------------
+
+# Generated compiler instructions for Clangd
+compile_commands.json
+
+# Cache directories for the Language Server (autocompletion)
+.cache/
+.clangd/
+.ccls-cache/
+
+# ----------------------------------------------------------------------
+# Operating System & Python Caches
+# ----------------------------------------------------------------------
+__pycache__/
+*.pyc
+.DS_Store
