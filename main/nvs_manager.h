@@ -1,4 +1,5 @@
 #pragma once
+#include <stdbool.h>
 
-void init_nvs_memory(void);
+bool init_nvs_memory(void);
 void count_reboots(void);

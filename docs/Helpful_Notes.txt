@@ -1,0 +1,48 @@
+--esp_err_to_name verwenden um den Namen des Errors zu erhalten!
+
+#include "esp_err.h" // Hier steckt die Übersetzungs-Funktion drin
+
+esp_err_t err = nvs_get_u32(my_handle, "restart_count", &restart_counter);
+
+if (err != ESP_OK) {
+    // Das %s sorgt dafür, dass der übersetzte String gedruckt wird
+    ESP_LOGE("NVS", "Fehler aufgetreten: %s", esp_err_to_name(err));
+}
+
+-----------------
+
+1. Trennung der Ausführungsstränge (FreeRTOS Tasks)
+
+Damit ein fehlgeschlagener Netzwerkaufbau dein restliches System nicht anhält, dürfen diese Prozesse nicht sequenziell in der app_main ablaufen.
+
+    Konzept: Du teilst dein Programm in isolierte Aufgaben auf (z. B. einen Sensor_Task, der Daten liest, und einen Network_Task, der sich um WLAN kümmert). Wenn der Network_Task in einer Fehlerschleife festhängt oder wartet, teilt der FreeRTOS-Scheduler dem Sensor_Task weiterhin unbeirrt CPU-Zeit zu.
+
+    Zentrale Funktionen: xTaskCreate (zum Auslagern der Funktionen), vTaskDelay (für nicht-blockierende Pausen).
+
+    Dokumentation: FreeRTOS Task API
+
+2. Ereignisbasierte Steuerung (ESP Event Loop)
+
+WLAN-Verbindungen auf dem ESP32 sind asynchron. Du fragst nicht aktiv permanent nach dem Status, sondern das Betriebssystem meldet sich bei dir, wenn etwas passiert.
+
+    Konzept: Das ESP-IDF nutzt ein Publish/Subscribe-Muster. Du erstellst eine zentrale Schleife und registrierst sogenannte "Handler" (Funktionen). Du sagst dem System: "Wenn das Ereignis WIFI_EVENT_STA_DISCONNECTED auftritt, führe im Hintergrund diesen speziellen Code aus (z. B. einen Reconnect-Versuch)."
+
+    Zentrale Funktionen: esp_event_loop_create_default() (zum Starten des Systems), esp_event_handler_register() (um auf Statusänderungen zu lauschen).
+
+    Dokumentation: ESP Event Loop Library
+
+3. Zustandsverwaltung zwischen Modulen (FreeRTOS Event Groups)
+
+Wenn deine Module komplett unabhängig voneinander laufen, muss dein UDP-Server wissen, ob überhaupt eine IP-Adresse existiert, bevor er Daten sendet.
+
+    Konzept: Event Groups sind eine Sammlung von binären Flaggen (Bits), die von überall im System extrem ressourcenschonend gelesen und geschrieben werden können. Der WLAN-Handler setzt beispielsweise BIT0 auf 1, wenn die Verbindung steht, und auf 0, wenn sie abbricht. Dein Sensor-Task prüft vor dem Senden lediglich dieses Bit. Ist es 0, wird die Nachricht verworfen oder lokal gespeichert, und der Task macht nahtlos weiter, ohne zu crashen.
+
+    Zentrale Funktionen: xEventGroupCreate(), xEventGroupSetBits(), xEventGroupWaitBits().
+
+    Dokumentation: FreeRTOS Event Groups
+
+4. Entkopplung von Abhängigkeiten (NVS & WiFi)
+
+Für dein Ziel der vollständigen Autarkie:
+
+    Konzept: Wenn die NVS-Initialisierung fehlschlägt, speicherst du diesen Zustand in einer globalen oder statischen Variable (z.B. bool nvs_available = false;). Bevor du später den WLAN-Treiber (esp_wifi_init) aufrufst, prüfst du diese Variable. Ist sie false, überspringst du den gesamten Netzwerk-Start. Das System sendet dann zwar keine Daten, aber die Kernlogik läuft fehlerfrei weiter.
