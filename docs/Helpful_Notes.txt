@@ -46,3 +46,58 @@ Wenn deine Module komplett unabhängig voneinander laufen, muss dein UDP-Server 
 Für dein Ziel der vollständigen Autarkie:
 
     Konzept: Wenn die NVS-Initialisierung fehlschlägt, speicherst du diesen Zustand in einer globalen oder statischen Variable (z.B. bool nvs_available = false;). Bevor du später den WLAN-Treiber (esp_wifi_init) aufrufst, prüfst du diese Variable. Ist sie false, überspringst du den gesamten Netzwerk-Start. Das System sendet dann zwar keine Daten, aber die Kernlogik läuft fehlerfrei weiter.
+
+
+-------------------- FReeRTOS --------   
+Unlike Vanilla FreeRTOS, users of FreeRTOS in ESP-IDF must never call vTaskStartScheduler() and vTaskEndScheduler(). Instead, ESP-IDF starts FreeRTOS automatically. Users must define a void app_main(void) function which acts as the entry point for user's application and is automatically invoked on ESP-IDF startup.
+
+During startup, ESP-IDF and the FreeRTOS kernel automatically create multiple tasks that run in the background (listed in the the table below).
+
+IdleTask
+
+FreeRTos Timer task -- timer service Deamon for FreeRTOS Timer API calls
+
+Main Task: Task calls app_main and self deletes when app_main returns
+
+IPCTasks ?? Inter processor Call 
+
+ESPTimer Task esp timmer callbacks
+
+Prioritätsbasiertes Scheduling: Der FreeRTOS-Kernel unterbricht die CPU hardwareseitig über einen Timer-Interrupt (den sogenannten "Tick", standardmäßig 1000 Mal pro Sekunde auf dem ESP32). Bei jedem Tick friert der Scheduler den aktuellen CPU-Zustand ein, vergleicht die Prioritäten aller Tasks in der Ready List und weist Core 0 und Core 1 entsprechend neu zu. Die app_main hat hierbei keine Sonderstellung mehr, sondern konkurriert wie jeder andere Task um Rechenzeit.
+
+Can only be in one of the following states: Running, Ready, Blocked, or Suspended.
+
+Task functions are typically implemented as an infinite loop.
+
+Task functions should never return.
+Wenn du einen statisch erstellten Task mit vTaskDelete() beendest, passiert Folgendes: Der FreeRTOS-Scheduler hört auf, diesen Code auszuführen, und markiert den Task als beendet. Der Speicher für den TCB (Task Control Block) und den Stack bleibt jedoch dauerhaft im RAM blockiert. Er wird nicht dem allgemeinen FreeRTOS-Heap hinzugefügt und du kannst ihn nicht für andere Variablen oder neue Prozesse verwenden. Er ist im Grunde "totes Kapital" in deinem Arbeitsspeicher.
+
+Die Dokumentation weist darauf hin, dass der Speicher eines Tasks, der sich selbst löscht (vTaskDelete(NULL)), nicht sofort wieder verfügbar ist. Die eigentliche RAM-Freigabe wird an den "Idle Task" delegiert. Der Idle Task ist der Hintergrund-Prozess von FreeRTOS mit der allergeringsten Priorität (Priorität 0).
+Wenn dein ESP32 gerade extrem stark unter Last steht und Tasks mit höherer Priorität laufen, bekommt der Idle Task keine CPU-Zeit. Das bedeutet: Du hast den Task zwar gelöscht, aber sein belegter RAM wird solange nicht freigegeben, bis die CPU mal kurz "durchatmen" kann.
+
+
+"Graceful Shutdown"
+
+1. Die Ausführung des Befehls
+
+Die Funktion vTaskDelete() wird immer von dem Task ausgeführt, der sie im Code aufruft. Der Scheduler entzieht dem betroffenen Task daraufhin sofort den Status "ausführbereit" (Ready). Der Task verliert in dieser Mikrosekunde seine Berechtigung, weitere CPU-Zyklen zu nutzen.
+2. Wann der Idle Task eingreift (Die Speicherfreigabe)
+
+Der Idle Task kommt erst nach dem Löschvorgang ins Spiel, um den reservierten Arbeitsspeicher (den Stack und den Task Control Block) wieder in den allgemeinen FreeRTOS-Heap zurückzuführen.Das passiert aus einem rein architektonischen Grund: Ein Task kann den Speicher, in dem er sich gerade selbst ausführt, nicht restlos an das System zurückgeben. Das wäre vergleichbar mit dem Versuch, den Ast abzusägen, auf dem man gerade sitzt. Der Task braucht seinen eigenen Stack bis zur allerletzten Instruktion des Löschvorgangs.
+
+Signal senden: Task A setzt ein Flag (z. B. über ein FreeRTOS EventGroup Bit oder eine thread-sichere Variable).
+
+Signal abfragen: Task B prüft dieses Flag bei jedem Durchlauf seiner eigenen while(1)-Schleife an einer von ihm selbst definierten, garantiert sicheren Stelle.
+
+Aufräumen: Erkennt Task B das Signal, verlässt er die Hauptschleife über ein break. Er führt nun seine Exit-Routinen aus: Alle Mutexes werden freigegeben, offene Netzwerk-Sockets geschlossen und dynamischer Speicher mit free() zurückgegeben.
+
+Selbstauflösung: Als allerletzte Anweisung ruft Task B vTaskDelete(NULL) auf.
+
+
+n der Symmetric Multiprocessing (SMP) Architektur des ESP32 arbeiten Core 0 und Core 1 jedoch parallel auf demselben gemeinsamen Arbeitsspeicher (Shared Memory). Würden beide Kerne bei jedem eigenen Tick-Interrupt versuchen, exakt zeitgleich die globale Zeitvariable im RAM zu erhöhen oder Listen zu verändern, käme es zu unkontrollierbaren Race Conditions. Das System müsste bei jedem Tick globale Speicher-Sperren (Spinlocks) setzen, was die Performance massiv einbrechen ließe.
+
+Die Architektur löst dieses Problem durch eine strikte Gewaltenteilung:
+
+    Core 0 (Der Zeitnehmer): Er ist der absolute Master der globalen Systemzeit. Er allein erhöht die Tick-Zähler und durchsucht die Blocked-Listen nach Tasks, deren Timeouts abgelaufen sind, um sie wieder auf "ausführbereit" (Ready) zu setzen.
+
+    Core 1 (Der reine Arbeiter): Er ignoriert die globale Zeitverwaltung komplett. Sein Tick-Interrupt ist stark abgespeckt. Er schaut nur auf seinen eigenen, lokalen Zustand: "Hat der Task, den ich auf Core 1 gerade ausführe, sein zugewiesenes Zeitfenster (Time-Slice) aufgebraucht? Wenn ja, verdränge ich ihn und lade den nächsten Task in meine eigenen Register."

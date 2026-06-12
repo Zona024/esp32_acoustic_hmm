@@ -10,9 +10,9 @@ static const char *TAG = "MAIN_APP";
 void app_main(void) {
   // Log an informational message (LOGI = Log Info)
   ESP_LOGI(TAG, "The ESP32 has successfully booted.");
+
   bool is_nvs_available = init_nvs_memory();
   if (is_nvs_available) { // Here comes all the code that needs NVS particular
-                          // (for Wifi)
     count_reboots();
   } else {
     ESP_LOGW(TAG, "Non-Volatile Storage not accesible!");
