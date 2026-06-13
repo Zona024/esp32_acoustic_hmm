@@ -3,6 +3,7 @@
 #include "esp_log.h"
 #include "nvs.h"
 #include "nvs_flash.h"
+#include <inttypes.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -61,7 +62,7 @@ void count_reboots(void) {
   }
   // Wert erhöhen und in der Konsole ausgeben
   restart_counter++;
-  ESP_LOGI("NVS", "Der ESP32 wurde %lu mal gestartet.", restart_counter);
+  ESP_LOGI("NVS", "Der ESP32 wurde %" PRIu32 "mal gestartet.", restart_counter);
 
   // 3. Schreiben: Den neuen Wert in den Speicher legen
   err = nvs_set_u32(my_handle, "restart_count", restart_counter);

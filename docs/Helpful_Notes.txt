@@ -101,3 +101,5 @@ Die Architektur löst dieses Problem durch eine strikte Gewaltenteilung:
     Core 0 (Der Zeitnehmer): Er ist der absolute Master der globalen Systemzeit. Er allein erhöht die Tick-Zähler und durchsucht die Blocked-Listen nach Tasks, deren Timeouts abgelaufen sind, um sie wieder auf "ausführbereit" (Ready) zu setzen.
 
     Core 1 (Der reine Arbeiter): Er ignoriert die globale Zeitverwaltung komplett. Sein Tick-Interrupt ist stark abgespeckt. Er schaut nur auf seinen eigenen, lokalen Zustand: "Hat der Task, den ich auf Core 1 gerade ausführe, sein zugewiesenes Zeitfenster (Time-Slice) aufgebraucht? Wenn ja, verdränge ich ihn und lade den nächsten Task in meine eigenen Register."
+
+Code executed between vTaskSuspendAll() and xTaskResumeAll() must be strictly non-blocking and restricted almost entirely to RAM or CPU-register operations.Any function that interacts with external hardware, slow peripherals, or OS-level synchronization primitives will crash the ESP32 if called while the scheduler is suspended.
