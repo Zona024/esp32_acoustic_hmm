@@ -10,12 +10,12 @@ This document outlines core concepts, architectural principles, and best practic
 5. [Advanced Execution Contexts (Hooks & Critical Sections)](#5-advanced-execution-contexts)
 6. [Best Practices & Error Handling](#6-best-practices--error-handling)
 
-7. [TLSP Deletion Callback (ESP-IDF)](#tlsp-deletion-callback-esp-idf)
+7. [TLSP Deletion Callback (ESP-IDF)](#7-tlsp-deletion-callback-esp-idf)
 
-8. [Advanced Heap Memory Allocation & Capabilities](#advanced-heap-memory-allocation--capabilities)
-9. [Heap Debugging & Monitoring](#heap-debugging--monitoring)
+8. [Advanced Heap Memory Allocation & Capabilities](#8-advanced-heap-memory-allocation--capabilities)
+9. [Heap Debugging & Monitoring](#9-heap-debugging--monitoring)
 
-10. [Memory Management Unit (MMU) Mapping](#memory-management-unit-mmu-mapping)
+10. [Memory Management Unit (MMU) Mapping](#10-memory-management-unit-mmu-mapping)
 
 11. [ESP32-WROOM-32 — Key Specifications](#11-esp32-wroom-32--key-specifications-esp32-specs)
 
