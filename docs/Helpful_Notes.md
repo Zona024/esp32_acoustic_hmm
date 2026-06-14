@@ -18,7 +18,7 @@ This document outlines core concepts, architectural principles, and best practic
 
 10. [Memory Managment Unit (MMU) Mapping](#10-memory-managment-unit)
 
-11. [## 11. ESP32-WROOM-32 — Key Specifications](#11-esp32-specs)
+11. [ESP32-WROOM-32 — Key Specifications](#11-esp32-specs)
 
 ---
 
@@ -141,7 +141,7 @@ if (err != ESP_OK) {
 
 ---
 
-## 7. TLSP Deletion Callback (ESP-IDF)
+## 7. TLSP Deletion Callback (ESP-IDF) {#7-tlsp-deletion-callback}
 
 A **TLSP Deletion Callback** is a function that ESP-IDF automatically calls when a task is deleted.
 
@@ -203,7 +203,7 @@ static void my_task(void *arg)
 
 ---
 
-## 8. Advanced Heap Memory Allocation & Capabilities
+## 8. Advanced Heap Memory Allocation & Capabilities {#8-heap-allocation}
 
 The ESP32 has multiple memory regions (Internal RAM, PSRAM, IRAM, RTC RAM) with different properties. When memory must meet specific hardware requirements, use the **Capabilities-Based Allocator**.
 
@@ -252,7 +252,7 @@ free(dma_buffer);
 
 ---
 
-## 9. Heap Debugging & Monitoring
+## 9. Heap Debugging & Monitoring {#9-heap-debugging}
 
 ESP-IDF provides tools for monitoring memory usage, fragmentation, and corruption.
 
@@ -311,7 +311,7 @@ This causes an immediate crash with a stack trace, making allocation failures ea
 
 
 
-## 10. Memory Management Unit (MMU) Mapping
+## 10. Memory Management Unit (MMU) Mapping {#10-memory-managment-unit}
 
 The MMU allows physical Flash or PSRAM memory to be mapped directly into the CPU's virtual address space.
 
@@ -509,7 +509,7 @@ Examples:
 > Use **MMU Mapping** when you need direct, zero-copy access to large Flash/PSRAM data.
 
 
-## 11. ESP32-WROOM-32 — Key Specifications
+## 11. ESP32-WROOM-32 — Key Specifications {#esp32-specs}
 
 ### 1. Core Architecture
 
