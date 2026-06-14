@@ -10,15 +10,15 @@ This document outlines core concepts, architectural principles, and best practic
 5. [Advanced Execution Contexts (Hooks & Critical Sections)](#5-advanced-execution-contexts)
 6. [Best Practices & Error Handling](#6-best-practices--error-handling)
 
-7. [TLSP Deletion Callback](#7-tlsp-deletion-callback)
+7. [TLSP Deletion Callback (ESP-IDF)](#tlsp-deletion-callback-esp-idf)
 
-8. [Advanced Heap Memory Allocation & Capabilities](#8-heap-allocation)
+8. [Advanced Heap Memory Allocation & Capabilities](#advanced-heap-memory-allocation--capabilities)
+9. [Heap Debugging & Monitoring](#heap-debugging--monitoring)
 
-9. [Heap Debugging & Monitoring](#9-heap-debugging)
+10. [Memory Management Unit (MMU) Mapping](#memory-management-unit-mmu-mapping)
+11. [ESP32-WROOM-32 — Key Specifications](#esp32-wroom-32--key-specifications) Callback](#7-tlsp-deletion-callback)
 
-10. [Memory Managment Unit (MMU) Mapping](#10-memory-managment-unit)
-
-11. [ESP32-WROOM-32 — Key Specifications](#11-esp32-specs)
+11. [ESP32-WROOM-32 — Key Specifications](#11-esp32-wroom-32--key-specifications-esp32-specs)
 
 ---
 
@@ -141,7 +141,7 @@ if (err != ESP_OK) {
 
 ---
 
-## 7. TLSP Deletion Callback (ESP-IDF) {#7-tlsp-deletion-callback}
+## 7. TLSP Deletion Callback (ESP-IDF) 
 
 A **TLSP Deletion Callback** is a function that ESP-IDF automatically calls when a task is deleted.
 
@@ -203,7 +203,7 @@ static void my_task(void *arg)
 
 ---
 
-## 8. Advanced Heap Memory Allocation & Capabilities {#8-heap-allocation}
+## 8. Advanced Heap Memory Allocation & Capabilities 
 
 The ESP32 has multiple memory regions (Internal RAM, PSRAM, IRAM, RTC RAM) with different properties. When memory must meet specific hardware requirements, use the **Capabilities-Based Allocator**.
 
@@ -252,7 +252,7 @@ free(dma_buffer);
 
 ---
 
-## 9. Heap Debugging & Monitoring {#9-heap-debugging}
+## 9. Heap Debugging & Monitoring 
 
 ESP-IDF provides tools for monitoring memory usage, fragmentation, and corruption.
 
@@ -311,7 +311,7 @@ This causes an immediate crash with a stack trace, making allocation failures ea
 
 
 
-## 10. Memory Management Unit (MMU) Mapping {#10-memory-managment-unit}
+## 10. Memory Management Unit (MMU) Mapping 
 
 The MMU allows physical Flash or PSRAM memory to be mapped directly into the CPU's virtual address space.
 
