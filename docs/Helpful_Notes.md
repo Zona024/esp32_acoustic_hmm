@@ -16,7 +16,6 @@ This document outlines core concepts, architectural principles, and best practic
 9. [Heap Debugging & Monitoring](#heap-debugging--monitoring)
 
 10. [Memory Management Unit (MMU) Mapping](#memory-management-unit-mmu-mapping)
-11. [ESP32-WROOM-32 — Key Specifications](#esp32-wroom-32--key-specifications) Callback](#7-tlsp-deletion-callback)
 
 11. [ESP32-WROOM-32 — Key Specifications](#11-esp32-wroom-32--key-specifications-esp32-specs)
 
