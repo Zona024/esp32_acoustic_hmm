@@ -4,6 +4,7 @@ This document outlines core concepts, architectural principles, and best practic
 
 ## Table of Contents
 1. [Architecture & OS Fundamentals](#1-architecture--os-fundamentals)
+
 2. [Task Management & Separation of Concerns](#2-task-management--separation-of-concerns)
 3. [Memory Management & Task Lifecycle](#3-memory-management--task-lifecycle)
 4. [Inter-Task Communication & Synchronization](#4-inter-task-communication--synchronization)
@@ -13,7 +14,7 @@ This document outlines core concepts, architectural principles, and best practic
 7. [TLSP Deletion Callback (ESP-IDF)](#7-tlsp-deletion-callback-esp-idf)
 
 8. [Advanced Heap Memory Allocation & Capabilities](#8-advanced-heap-memory-allocation--capabilities)
-9. [Heap Debugging & Monitoring](#9-heap-debugging--monitoring)
+9. [Heap Debugging & Monitoring](#9heap-debugging--monitoring)
 
 10. [Memory Management Unit (MMU) Mapping](#10-memory-management-unit-mmu-mapping)
 
@@ -508,7 +509,7 @@ Examples:
 > Use **MMU Mapping** when you need direct, zero-copy access to large Flash/PSRAM data.
 
 
-## 11. ESP32-WROOM-32 — Key Specifications {#esp32-specs}
+## 11. ESP32-WROOM-32 — Key Specifications 
 
 ### 1. Core Architecture
 

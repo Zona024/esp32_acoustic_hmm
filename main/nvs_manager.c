@@ -1,6 +1,8 @@
 #include "nvs_manager.h"
 #include "esp_err.h"
 #include "esp_log.h"
+#include "freertos/idf_additions.h"
+#include "freertos/projdefs.h"
 #include "nvs.h"
 #include "nvs_flash.h"
 #include <inttypes.h>
@@ -73,4 +75,16 @@ void count_reboots(void) {
 
   // 5. Schließen: Speicher wieder freigeben
   nvs_close(my_handle);
+}
+
+void dummy_load_task(void) {
+  while (1) {
+    // Berechne etwas, das nicht wegoptimiert werden kann
+    volatile float x = 0.0f;
+    for (int i = 0; i < 100000; i++) {
+      x += 0.01f * 0.01f;
+    }
+    // Gib den CPU-Kern für 10ms komplett frei
+    vTaskDelay(pdMS_TO_TICKS(10));
+  }
 }
