@@ -24,7 +24,6 @@ compile_commands.json
 
 # Cache directories for the Language Server (autocompletion)
 .cache/
-.clangd/
 .ccls-cache/
 
 # ----------------------------------------------------------------------
@@ -36,3 +35,5 @@ __pycache__/
 
 # Editor and System Logs
 *.log
+.clangd
+.clangd/
