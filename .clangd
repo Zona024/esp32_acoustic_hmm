@@ -1,0 +1,16 @@
+CompileFlags:
+  Compiler: /home/zona024/Counter_Project/.espressif/tools/xtensa-esp-elf/esp-13.2.0_20230928/xtensa-esp-elf/bin/xtensa-esp32-elf-gcc
+  Add:
+    - "--target=xtensa-esp-elf"
+    - "-D__XTENSA__=1"
+    - "-DIDF_FREERTOS=1"
+    - "-D_GNU_SOURCE"
+    - "-D__glibc_use(x)=0"
+    - "-Wno-undef"
+    - "-isystem"
+    - "/home/zona024/.espressif/tools/xtensa-esp-elf/esp-13.2.0_20230928/xtensa-esp-elf/xtensa-esp-elf/include"
+  Remove: 
+    - "-mlongcalls"
+    - "-fno-shrink-wrap"
+    - "-fno-tree-switch-conversion"
+    - "-fstrict-volatile-bitfields"
