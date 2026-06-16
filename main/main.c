@@ -14,6 +14,8 @@ volatile bool is_typing = true;
 SemaphoreHandle_t boot_semaphore = NULL;
 
 volatile uint32_t idle_counters[2] = {0, 0};
+char selection_buffer[10];
+char password_buffer[64];
 
 void vApplicationIdleHook(void) {
   // which core is currently running this hook?
@@ -33,10 +35,10 @@ void app_main(void) {
   } else {
     ESP_LOGW(TAG, "Non-Volatile Storage not accesible!");
   }
-  boot_semaphore = xSemaphoreCreateBinary();
+  boot_semaphore = xSemaphoreCreateMutex();
+  terminal_input_task("---> Bitte WLAN-Passwort eingeben: ", password_buffer,
+                      sizeof(password_buffer), true);
   ESP_LOGI(TAG, "Starting the main execution loop...");
-  xTaskCreate(terminal_input_task, "TerminalInput", 4096, NULL, 1, NULL);
-  xSemaphoreTake(boot_semaphore, portMAX_DELAY);
   xTaskCreate(idle_monitor_task, "IdleMonitor", 2048, NULL, 1, NULL);
   xTaskCreate(dummy_load_task, "DummyTask", 2048, NULL, 1, NULL);
 

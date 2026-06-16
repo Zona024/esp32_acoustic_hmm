@@ -6,6 +6,7 @@
 #include "freertos/semphr.h"
 #include "nvs.h"
 #include "nvs_flash.h"
+#include "portmacro.h"
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -116,8 +117,11 @@ void idle_monitor_task(void *pvParameters) {
     prev_core_0 = current_core_0;
     prev_core_1 = current_core_1;
 
-    // 4. Print the results
-    if (!is_typing) {
+    // 4. Print the results (Replaces the is_typing check)
+    // Attempt to take the mutex. If the user is currently typing,
+    // this fails after 10ms, skipping the print but maintaining the 5s
+    // calculation cycle.
+    if (xSemaphoreTake(boot_semaphore, pdMS_TO_TICKS(10)) == pdTRUE) {
 
       ESP_LOGI(TAG2,
                "\n"
@@ -129,57 +133,55 @@ void idle_monitor_task(void *pvParameters) {
                "--------------------------------------------------",
                count_core_0_set, count_core_1_set, current_core_0,
                current_core_1);
+
+      // Immediately release the mutex after printing
+      xSemaphoreGive(boot_semaphore);
     }
   }
 }
 
-void terminal_input_task(void *pvParameters) {
-  char input_buffer[128];
-  int rx_count = 0; // Keeps track of how many letters we have received
+// Die Funktion blockiert den Aufrufer synchron, nutzt aber deinen gewählten
+// Namen
+void terminal_input_task(const char *prompt_text, char *output_buffer,
+                         size_t max_len, bool is_password) {
+  int rx_count = 0;
 
-  // Print the prompt ONCE outside the loop
-  printf("\n---> Please enter a password: ");
+  // 1. Deinen UART-Mutex (boot_semaphore) sperren
+  xSemaphoreTake(boot_semaphore, portMAX_DELAY);
+
+  // Prompt ausgeben
+  printf("\n%s", prompt_text);
   fflush(stdout);
 
+  // Endlosschleife blockiert den aktuellen Ablauf, bis Enter gedrückt wird
   while (1) {
-    // Read a single character from the standard input
     int c = getchar();
 
-    // If 'c' is EOF (-1), it means the UART buffer is currently empty
     if (c != EOF) {
-      // Did the user press "Enter"? (Newline or Carriage Return)
       if (c == '\n' || c == '\r') {
-
-        // Only process if they actually typed something before hitting Enter
         if (rx_count > 0) {
-          input_buffer[rx_count] = '\0'; // Manually null-terminate the string
+          // String terminieren
+          output_buffer[rx_count] = '\0';
+          printf("\n");
 
-          printf("\n"); // Move to a new line in the terminal
-          ESP_LOGI(TAG_INPUT, "Password fully captured: '%s'", input_buffer);
-          is_typing = false;
-
-          // --- YOUR LOGIC HERE ---
-          // e.g., pass the string to your Wi-Fi config
-          // is_typing = false;
-
+          // 2. UART-Mutex (boot_semaphore) wieder freigeben
           xSemaphoreGive(boot_semaphore);
-          // Terminate the task gracefully
-          vTaskDelete(NULL);
-        }
-      }
-      // If it's a normal character and we have room in the buffer
-      else if (rx_count < sizeof(input_buffer) - 1) {
 
-        input_buffer[rx_count] = (char)c; // Store the letter
+          // Rückkehr zum Aufrufer
+          return;
+        }
+      } else if (rx_count < max_len - 1) {
+        output_buffer[rx_count] = (char)c;
         rx_count++;
 
-        // Echo the character back to the terminal so you can see what you type!
-        putchar('*');
+        if (is_password) {
+          putchar('*');
+        } else {
+          putchar(c);
+        }
         fflush(stdout);
       }
     } else {
-      // No data available right now.
-      // Yield the CPU for 10ms so the FreeRTOS idle task can run
       vTaskDelay(pdMS_TO_TICKS(10));
     }
   }
