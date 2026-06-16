@@ -174,7 +174,7 @@ void terminal_input_task(void *pvParameters) {
         rx_count++;
 
         // Echo the character back to the terminal so you can see what you type!
-        putchar(c);
+        putchar('*');
         fflush(stdout);
       }
     } else {
