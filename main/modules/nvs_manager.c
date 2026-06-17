@@ -16,7 +16,6 @@
 #include <string.h>
 
 static const char *TAG2 = "IDLE_COUNT";
-static const char *TAG_INPUT = "INPUT";
 
 bool init_nvs_memory(void) {
   esp_err_t init_err = nvs_flash_init();
@@ -133,7 +132,7 @@ void idle_monitor_task(void *pvParameters) {
     // 4.Attempt to take the mutex. If the user is currently typing,
     // this fails after 10ms, skipping the print but maintaining the 5s
     // calculation cycle.
-    if (xSemaphoreTake(boot_semaphore, pdMS_TO_TICKS(10)) == pdTRUE) {
+    if (xSemaphoreTake(terminal_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
       ESP_LOGI(TAG2,
                "\n--------------------------------------------------\n"
                "| Statistik          | Core 0     | Core 1       |\n"
@@ -146,7 +145,7 @@ void idle_monitor_task(void *pvParameters) {
                count_core_0_set, count_core_1_set, current_core_0,
                current_core_1, free_ram, min_ever_ram);
 
-      xSemaphoreGive(boot_semaphore);
+      xSemaphoreGive(terminal_mutex);
     }
   }
 }
@@ -155,8 +154,9 @@ void terminal_input_task(const char *prompt_text, char *output_buffer,
                          size_t max_len, bool is_password) {
   int rx_count = 0;
 
-  // 1. Block boot_semaphore
-  xSemaphoreTake(boot_semaphore, portMAX_DELAY);
+  // 1. Block every task that wants continious Terminal-Output (must been set
+  // also on the task that want to output into the terminal)
+  xSemaphoreTake(terminal_mutex, portMAX_DELAY);
 
   // Prompt ausgeben
   printf("\n%s", prompt_text);
@@ -173,13 +173,24 @@ void terminal_input_task(const char *prompt_text, char *output_buffer,
           output_buffer[rx_count] = '\0';
           printf("\n");
 
-          // 2. UART-Mutex (boot_semaphore) wieder freigeben
-          xSemaphoreGive(boot_semaphore);
+          // 2. UART-Mutex  wieder freigeben
+          xSemaphoreGive(terminal_mutex);
 
           // Rückkehr zum Aufrufer
           return;
         }
-      } else if (rx_count < max_len - 1) {
+      }
+      // Backspace-Logik: ASCII 0x08 (\b) oder 0x7F (DEL)
+      else if (c == '\b' || c == 0x7F) {
+        if (rx_count > 0) {
+          rx_count--;
+          // Terminal-Ausgabe korrigieren: Cursor zurück, löschen, wieder zurück
+          printf("\b \b");
+          fflush(stdout);
+        }
+      }
+      // Nur druckbare Standard-Zeichen zulassen (verhindert Escape-Sequenzen)
+      else if (c >= 32 && c <= 126 && rx_count < max_len - 1) {
         output_buffer[rx_count] = (char)c;
         rx_count++;
 
@@ -191,12 +202,25 @@ void terminal_input_task(const char *prompt_text, char *output_buffer,
         fflush(stdout);
       }
     } else {
-      vTaskDelay(pdMS_TO_TICKS(10));
+      vTaskDelay(pdMS_TO_TICKS(100));
     }
   }
 }
 
 void setup_wlan_interactive(void) {
+
+  // 1. Abfrage direkt am Anfang
+  printf("\n>>> WLAN-Setup starten? (y/n): ");
+
+  char response[4];
+  // Wir nutzen deine bewährte terminal_input_task für den Input
+  terminal_input_task("Eingabe: ", response, sizeof(response), false);
+
+  // 2. Logik: Wenn nicht 'y', dann einfach die Funktion verlassen
+  if (response[0] != 'y' && response[0] != 'Y') {
+    ESP_LOGI("WLAN", "WLAN-Setup übersprungen.");
+    return;
+  }
   // 1. Netzwerk-Interface anlegen (zwingend erforderlich für LwIP)
   esp_netif_t *sta_netif = esp_netif_create_default_wifi_sta();
   assert(sta_netif);
@@ -237,7 +261,7 @@ void setup_wlan_interactive(void) {
   ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&ap_count, ap_records));
 
   // 6. Liste formatiert ausgeben (Mutex schützt den UART-Block)
-  if (xSemaphoreTake(boot_semaphore, portMAX_DELAY) == pdTRUE) {
+  if (xSemaphoreTake(terminal_mutex, portMAX_DELAY) == pdTRUE) {
     printf("\n========================================\n");
     printf("           GEFUNDENE NETZWERKE          \n");
     printf("========================================\n");
@@ -246,7 +270,7 @@ void setup_wlan_interactive(void) {
              ap_records[i].rssi);
     }
     printf("========================================\n");
-    xSemaphoreGive(boot_semaphore);
+    xSemaphoreGive(terminal_mutex);
   }
 
   // 7. Nutzereingabe: AP-Nummer wählen (mit Validierungsschleife)

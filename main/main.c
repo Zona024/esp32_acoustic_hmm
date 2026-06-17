@@ -9,14 +9,14 @@
 
 // Define a "TAG" for logs to know where they came from
 static const char *TAG = "MAIN_APP";
-SemaphoreHandle_t boot_semaphore = NULL;
+SemaphoreHandle_t terminal_mutex = NULL;
 
 volatile uint32_t idle_counters[2] = {0, 0};
 char selection_buffer[10];
 char password_buffer[64];
 
 void app_main(void) {
-  boot_semaphore = xSemaphoreCreateMutex();
+  terminal_mutex = xSemaphoreCreateMutex();
   ESP_LOGI(TAG, "The ESP32 has successfully booted.");
 
   bool is_nvs_available = init_nvs_memory();
