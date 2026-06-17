@@ -3,12 +3,9 @@
 #include "esp_netif.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/idf_additions.h"
-#include "freertos/projdefs.h"
 #include "freertos/task.h"
 #include "nvs_manager.h"
-#include "portmacro.h"
 #include <stdint.h>
-#include <stdio.h>
 
 // Define a "TAG" for our logs so we know where they came from
 static const char *TAG = "MAIN_APP";
@@ -18,14 +15,6 @@ SemaphoreHandle_t boot_semaphore = NULL;
 volatile uint32_t idle_counters[2] = {0, 0};
 char selection_buffer[10];
 char password_buffer[64];
-
-void vApplicationIdleHook(void) {
-  // which core is currently running this hook?
-  int core_id = xPortGetCoreID();
-
-  // Increment counter for this specific core!
-  idle_counters[core_id]++;
-}
 
 void app_main(void) {
   boot_semaphore = xSemaphoreCreateMutex();
@@ -43,7 +32,7 @@ void app_main(void) {
 
   ESP_LOGI(TAG, "Starting the main execution loop...");
   xTaskCreate(idle_monitor_task, "IdleMonitor", 2048, NULL, 1, NULL);
-  xTaskCreate(dummy_load_task, "DummyTask", 2048, NULL, 1, NULL);
+  xTaskCreatePinnedToCore(dummy_load_task, "DummyTask", 2048, NULL, 1, NULL, 1);
 
   ESP_LOGI(TAG, "All tasks created!");
 }

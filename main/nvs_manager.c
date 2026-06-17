@@ -88,6 +88,14 @@ void count_reboots(void) {
   nvs_close(my_handle);
 }
 
+void vApplicationIdleHook(void) {
+  // which core is currently running this hook?
+  int core_id = xPortGetCoreID();
+
+  // Increment counter for this specific core!
+  idle_counters[core_id]++;
+}
+
 void dummy_load_task(void *pvParameters) {
   while (1) {
     // Berechne etwas, das nicht wegoptimiert werden kann
