@@ -16,5 +16,6 @@ void dummy_load_task(void *pvParameters);
 void idle_monitor_task(void *pvParameters);
 void terminal_input_task(const char *prompt_text, char *output_buffer,
                          size_t max_len, bool is_password);
+void setup_wlan_interactive(void);
 
 #endif // NVS_MANAGER_H
