@@ -7,9 +7,8 @@
 #include "nvs_manager.h"
 #include <stdint.h>
 
-// Define a "TAG" for our logs so we know where they came from
+// Define a "TAG" for logs to know where they came from
 static const char *TAG = "MAIN_APP";
-volatile bool is_typing = true;
 SemaphoreHandle_t boot_semaphore = NULL;
 
 volatile uint32_t idle_counters[2] = {0, 0};

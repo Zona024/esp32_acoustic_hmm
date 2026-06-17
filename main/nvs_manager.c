@@ -1,8 +1,6 @@
 #include "nvs_manager.h"
 #include "esp_err.h"
-#include "esp_event.h"
 #include "esp_log.h"
-#include "esp_netif.h"
 #include "esp_wifi.h"
 #include "freertos/idf_additions.h"
 #include "freertos/projdefs.h"
@@ -113,6 +111,8 @@ void idle_monitor_task(void *pvParameters) {
   // They are initialized to 0 only once when the task starts.
   uint32_t prev_core_0 = 0;
   uint32_t prev_core_1 = 0;
+  uint32_t free_ram = esp_get_free_heap_size();
+  uint32_t min_ever_ram = esp_get_minimum_free_heap_size();
 
   while (1) {
     vTaskDelay(pdMS_TO_TICKS(5000));
@@ -134,19 +134,18 @@ void idle_monitor_task(void *pvParameters) {
     // this fails after 10ms, skipping the print but maintaining the 5s
     // calculation cycle.
     if (xSemaphoreTake(boot_semaphore, pdMS_TO_TICKS(10)) == pdTRUE) {
-
       ESP_LOGI(TAG2,
-               "\n"
-               "--------------------------------------------------\n"
+               "\n--------------------------------------------------\n"
                "| Statistik          | Core 0     | Core 1       |\n"
                "--------------------------------------------------\n"
                "| Letzte 5s (Loops)  | %-10" PRIu32 " | %-10" PRIu32 " |\n"
                "| Gesamt    (Loops)  | %-10" PRIu32 " | %-10" PRIu32 " |\n"
+               "--------------------------------------------------\n"
+               "| RAM: Free: %-8" PRIu32 " | Min: %-10" PRIu32 " |\n"
                "--------------------------------------------------",
                count_core_0_set, count_core_1_set, current_core_0,
-               current_core_1);
+               current_core_1, free_ram, min_ever_ram);
 
-      // Immediately release the mutex after printing
       xSemaphoreGive(boot_semaphore);
     }
   }
