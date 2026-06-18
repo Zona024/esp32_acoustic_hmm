@@ -3,14 +3,9 @@
 #include "esp_log.h"
 #include "esp_wifi.h"
 #include "freertos/idf_additions.h"
-#include "freertos/projdefs.h"
-#include "freertos/semphr.h"
 #include "nvs.h"
 #include "nvs_flash.h"
-#include "portmacro.h"
 #include <inttypes.h>
-#include <stdbool.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

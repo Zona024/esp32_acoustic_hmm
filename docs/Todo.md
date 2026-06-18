@@ -1,5 +1,6 @@
-#Todo-List
+# Todo-List
 
 - [ ] Wlan reload old config if stored in NVS
-- [ ] Create first ringbuffer
-
+- [x] Create first ringbuffer
+- [ ] Fill ringbuffer with dummy data and play alittle bit around
+- [ ] Read Sensor data

@@ -5,6 +5,7 @@
 #include "freertos/idf_additions.h"
 #include "freertos/task.h"
 #include "nvs_manager.h"
+#include "sensor_manager.h"
 #include <stdint.h>
 
 // Define a "TAG" for logs to know where they came from
@@ -28,6 +29,9 @@ void app_main(void) {
   } else {
     ESP_LOGW(TAG, "Non-Volatile Storage not accesible!");
   }
+
+  // Ringbuffer initialisieren
+  init_ringbuffer();
 
   ESP_LOGI(TAG, "Starting the main execution loop...");
   xTaskCreate(idle_monitor_task, "IdleMonitor", 2048, NULL, 1, NULL);
