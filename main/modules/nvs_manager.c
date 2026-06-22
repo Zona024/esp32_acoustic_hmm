@@ -10,6 +10,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define MAX_WIFI_HISTORY 3
+
 static const char *TAG2 = "IDLE_COUNT";
 
 bool init_nvs_memory(void) {
@@ -202,6 +204,58 @@ void terminal_input_task(const char *prompt_text, char *output_buffer,
   }
 }
 
+static bool get_saved_wifi_password(nvs_handle_t handle,
+                                    const char *target_ssid,
+                                    char *out_password) {
+  char key_ssid[16];
+  char key_pass[16];
+
+  for (int i = 0; i < MAX_WIFI_HISTORY; i++) {
+    snprintf(key_ssid, sizeof(key_ssid), "w_ssid_%d", i);
+    snprintf(key_pass, sizeof(key_pass), "w_pass_%d", i);
+
+    char saved_ssid[33] = {0};
+    size_t len = sizeof(saved_ssid);
+
+    // Prüfen ob der SSID-Schlüssel existiert und auslesen
+    if (nvs_get_str(handle, key_ssid, saved_ssid, &len) == ESP_OK) {
+      if (strcmp(saved_ssid, target_ssid) == 0) {
+        // SSID stimmt überein, zugehöriges Passwort laden
+        size_t pass_len = 64;
+        if (nvs_get_str(handle, key_pass, out_password, &pass_len) == ESP_OK) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+// Überschreibt den ältesten Eintrag (Head) und rotiert den Zeiger
+static void save_wifi_credentials(nvs_handle_t handle, const char *ssid,
+                                  const char *password) {
+  uint8_t head = 0;
+  // Aktuellen Head-Index laden (Standardwert 0, falls der Key noch nicht
+  // existiert)
+  nvs_get_u8(handle, "w_head", &head);
+
+  char key_ssid[16];
+  char key_pass[16];
+  snprintf(key_ssid, sizeof(key_ssid), "w_ssid_%d", head);
+  snprintf(key_pass, sizeof(key_pass), "w_pass_%d", head);
+
+  // Daten auf den aktuellen Slot schreiben
+  nvs_set_str(handle, key_ssid, ssid);
+  nvs_set_str(handle, key_pass, password);
+
+  // Head rotieren (0 -> 1 -> 2 -> 0) und im NVS aktualisieren
+  head = (head + 1) % MAX_WIFI_HISTORY;
+  nvs_set_u8(handle, "w_head", head);
+
+  nvs_commit(handle);
+  ESP_LOGI("WLAN", "Neues Netzwerk in NVS-Slot gespeichert.");
+}
+
 void setup_wlan_interactive(void) {
 
   // 1. Abfrage direkt am Anfang
@@ -284,17 +338,40 @@ void setup_wlan_interactive(void) {
     }
   }
 
-  // 8. Gewählte SSID extrahieren und Heap-Speicher sofort freigeben
   char selected_ssid[33] = {0};
   strncpy(selected_ssid, (char *)ap_records[selected_idx - 1].ssid, 32);
   free(ap_records);
 
   ESP_LOGI("WLAN", "Gewähltes Netzwerk: %s", selected_ssid);
 
-  // 9. Nutzereingabe: Passwort abfragen (mit Sternchen)
   char password_buffer[64] = {0};
-  terminal_input_task("---> Passwort eingeben: ", password_buffer,
-                      sizeof(password_buffer), true);
+  bool pass_found = false;
+  nvs_handle_t my_handle;
+  bool nvs_opened = (nvs_open("storage", NVS_READWRITE, &my_handle) == ESP_OK);
+
+  // Prüfen ob das Passwort bereits in der Historie existiert
+  if (nvs_opened) {
+    pass_found =
+        get_saved_wifi_password(my_handle, selected_ssid, password_buffer);
+  }
+
+  if (pass_found) {
+    ESP_LOGI("WLAN", "Passwort erfolgreich aus der NVS-Historie geladen.");
+  } else {
+    // 9. Nutzereingabe: Passwort abfragen (mit Sternchen)
+    terminal_input_task("---> Passwort eingeben: ", password_buffer,
+                        sizeof(password_buffer), true);
+
+    // Neues Netzwerk in den Ringpuffer speichern
+    if (nvs_opened) {
+      save_wifi_credentials(my_handle, selected_ssid, password_buffer);
+    }
+  }
+
+  // NVS-Handle sauber schließen
+  if (nvs_opened) {
+    nvs_close(my_handle);
+  }
 
   // 10. Konfiguration setzen und Verbindungsaufbau starten
   wifi_config_t wifi_config = {0};
