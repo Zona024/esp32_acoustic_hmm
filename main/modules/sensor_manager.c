@@ -1,12 +1,18 @@
 #include "sensor_manager.h"
 #include "esp_log.h"
+#include "esp_rom_sys.h" // Für aktives CPU-Delay
+#include "esp_timer.h"   // Für hochpräzise Mikrosekunden-Messungen
 #include "freertos/FreeRTOS.h"
 #include "freertos/idf_additions.h"
 #include "freertos/ringbuf.h"
 #include "nvs_manager.h"
 #include "portmacro.h"
 #include <math.h>
+#include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
+
+#define SIMULATED_PROCESSING_TIME_US 5000
 
 // statischer speicher für Audiodaten
 static uint8_t audio_buffer_storage[AUDIO_BUFFER_SIZE];
@@ -23,39 +29,73 @@ void init_ringbuffer(void) {
 }
 
 void dummy_buffer_load_task(void *pvParameters) {
-
   const int SAMPLE_RATE = 16000;
   const int CHUNK_SAMPLES = 512;
   int16_t audio_chunk[CHUNK_SAMPLES];
-
   float phase = 0.0f;
   bool is_high_freq = false;
 
   while (1) {
     xSemaphoreTake(ringbuffer_sync_semaphore, portMAX_DELAY);
 
+    // Startzeitpunkt messen
+    int64_t start_time = esp_timer_get_time();
+
     float current_freq = is_high_freq ? 880.0f : 440.0f;
     is_high_freq = !is_high_freq;
-    ESP_LOGI("SENSOR", "Starte Audio-Aufnahme (Simulation: %.0f Hz)",
-             current_freq);
 
-    // Ring buffer mit 4 x 1024 Bytes = 4096 Bytes füllen
     for (int chunk_idx = 0; chunk_idx < 4; chunk_idx++) {
       for (int i = 0; i < CHUNK_SAMPLES; i++) {
-        // Amplitude von 10000 (passt gut in int16_t)
         audio_chunk[i] = (int16_t)(sinf(phase) * 10000.0f);
-
-        // Phase weiterschieben (2 * PI * f / fs)
         phase += (2.0f * M_PI * current_freq) / SAMPLE_RATE;
-        if (phase > 2.0f * M_PI) {
+        if (phase > 2.0f * M_PI)
           phase -= 2.0f * M_PI;
-        }
       }
-      // Chunk in den Puffer schieben (blockiert maximal 100 Ticks, falls voll)
       xRingbufferSend(audio_buffer_handle, audio_chunk, sizeof(audio_chunk),
                       pdMS_TO_TICKS(100));
     }
 
-    ESP_LOGI("SENSOR", "Aufnahme beendet. Sensor geht in Standby.");
+    // Dauer berechnen (Mikrosekunden in Millisekunden) und global speichern
+    last_sensor_duration_ms =
+        (uint32_t)((esp_timer_get_time() - start_time) / 1000);
+  }
+}
+
+void dummy_hmm_task(void *pvParameters) {
+  size_t item_size;
+  int total_bytes_processed = 0;
+  int64_t sequence_start_time = 0;
+  volatile int32_t dummy_feature = 0;
+
+  while (1) {
+    int16_t *received_data = (int16_t *)xRingbufferReceive(
+        audio_buffer_handle, &item_size, portMAX_DELAY);
+
+    if (received_data != NULL) {
+      if (total_bytes_processed == 0) {
+        sequence_start_time = esp_timer_get_time();
+      }
+
+      int num_samples = item_size / sizeof(int16_t);
+      dummy_feature = 0;
+      for (int i = 0; i < num_samples; i++) {
+        dummy_feature += received_data[i];
+      }
+
+      // Deine konfigurierte Dummy-Rechenlast
+      esp_rom_delay_us(SIMULATED_PROCESSING_TIME_US);
+
+      total_bytes_processed += item_size;
+      vRingbufferReturnItem(audio_buffer_handle, (void *)received_data);
+
+      if (total_bytes_processed >= 4096) {
+        // Dauer berechnen und global speichern
+        last_hmm_duration_ms =
+            (uint32_t)((esp_timer_get_time() - sequence_start_time) / 1000);
+
+        total_bytes_processed = 0;
+        xSemaphoreGive(ringbuffer_sync_semaphore);
+      }
+    }
   }
 }

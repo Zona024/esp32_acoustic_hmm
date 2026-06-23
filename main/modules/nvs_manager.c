@@ -5,6 +5,7 @@
 #include "freertos/idf_additions.h"
 #include "nvs.h"
 #include "nvs_flash.h"
+#include "sensor_manager.h"
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -103,44 +104,46 @@ void dummy_load_task(void *pvParameters) {
 }
 
 void idle_monitor_task(void *pvParameters) {
-  // These variables remember the count from 5 seconds ago.
-  // They are initialized to 0 only once when the task starts.
+  // Diese Variablen speichern die Zählerstände des vorherigen Durchlaufs (vor 5
+  // Sekunden)
   uint32_t prev_core_0 = 0;
   uint32_t prev_core_1 = 0;
-  uint32_t free_ram = esp_get_free_heap_size();
-  uint32_t min_ever_ram = esp_get_minimum_free_heap_size();
 
   while (1) {
+    // 5 Sekunden warten
     vTaskDelay(pdMS_TO_TICKS(5000));
 
-    // 1. Take a snapshot of the CURRENT global counters (initialized in main.c
-    // and used in vApplicationIdleHook())
+    // 1. Live-Snapshot der RAM-Werte und globalen Idle-Zähler abrufen
+    uint32_t free_ram = esp_get_free_heap_size();
+    uint32_t min_ever_ram = esp_get_minimum_free_heap_size();
     uint32_t current_core_0 = idle_counters[0];
     uint32_t current_core_1 = idle_counters[1];
 
-    // 2. Calculate the delta (Current - Previous)
+    // 2. Berechnung der Deltas (Zyklen im aktuellen 5-Sekunden-Intervall)
     uint32_t count_core_0_set = current_core_0 - prev_core_0;
     uint32_t count_core_1_set = current_core_1 - prev_core_1;
 
-    // 3. Update the history variables for the next 5-second cycle
+    // Historie für den nächsten Zyklus aktualisieren
     prev_core_0 = current_core_0;
     prev_core_1 = current_core_1;
 
-    // 4.Attempt to take the mutex. If the user is currently typing,
-    // this fails after 10ms, skipping the print but maintaining the 5s
-    // calculation cycle.
+    // 3. Thread-sichere Ausgabe über das tabellarische Layout
     if (xSemaphoreTake(terminal_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
       ESP_LOGI(TAG2,
                "\n--------------------------------------------------\n"
-               "| Statistik          | Core 0     | Core 1       |\n"
+               "| System-Statistik   | Core 0     | Core 1       |\n"
                "--------------------------------------------------\n"
                "| Letzte 5s (Loops)  | %-10" PRIu32 " | %-10" PRIu32 " |\n"
                "| Gesamt    (Loops)  | %-10" PRIu32 " | %-10" PRIu32 " |\n"
                "--------------------------------------------------\n"
-               "| RAM: Free: %-8" PRIu32 " | Min: %-10" PRIu32 " |\n"
+               "| Sensor-Latenz      | %-7lu ms | -            |\n"
+               "| HMM-Rechenzeit     | -          | %-7lu ms   |\n"
+               "--------------------------------------------------\n"
+               "| RAM: Free: %-8" PRIu32 " | Min ever: %-10" PRIu32 " |\n"
                "--------------------------------------------------",
                count_core_0_set, count_core_1_set, current_core_0,
-               current_core_1, free_ram, min_ever_ram);
+               current_core_1, last_sensor_duration_ms, last_hmm_duration_ms,
+               free_ram, min_ever_ram);
 
       xSemaphoreGive(terminal_mutex);
     }

@@ -16,6 +16,8 @@ SemaphoreHandle_t terminal_mutex = NULL;
 StaticSemaphore_t semaphore_buffer;
 SemaphoreHandle_t ringbuffer_sync_semaphore;
 
+volatile uint32_t last_sensor_duration_ms = 0;
+volatile uint32_t last_hmm_duration_ms = 0;
 volatile uint32_t idle_counters[2] = {0, 0};
 char selection_buffer[10];
 char password_buffer[64];
@@ -44,7 +46,10 @@ void app_main(void) {
 
   ESP_LOGI(TAG, "Starting the main execution loop...");
   xTaskCreate(idle_monitor_task, "IdleMonitor", 2048, NULL, 1, NULL);
-  xTaskCreatePinnedToCore(dummy_load_task, "DummyTask", 2048, NULL, 1, NULL, 1);
+  // xTaskCreatePinnedToCore(dummy_load_task, "DummyTask", 2048, NULL, 1, NULL,
+  // 1);
+  xTaskCreate(dummy_buffer_load_task, "SensorTask", 4096, NULL, 5, NULL);
+  xTaskCreate(dummy_hmm_task, "HMMTask", 4096, NULL, 5, NULL);
 
   ESP_LOGI(TAG, "All tasks created!");
 }
