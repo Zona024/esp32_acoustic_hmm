@@ -6,11 +6,15 @@
 #include "freertos/task.h"
 #include "nvs_manager.h"
 #include "sensor_manager.h"
+#include <math.h>
 #include <stdint.h>
 
 // Define a "TAG" for logs to know where they came from
 static const char *TAG = "MAIN_APP";
+
 SemaphoreHandle_t terminal_mutex = NULL;
+StaticSemaphore_t semaphore_buffer;
+SemaphoreHandle_t ringbuffer_sync_semaphore;
 
 volatile uint32_t idle_counters[2] = {0, 0};
 char selection_buffer[10];
@@ -18,7 +22,12 @@ char password_buffer[64];
 
 void app_main(void) {
   terminal_mutex = xSemaphoreCreateMutex();
-  ESP_LOGI(TAG, "The ESP32 has successfully booted.");
+  // Für static semaphore muss vorher ein speicher reserviert werden
+  // (semaphore_buffer)
+  ringbuffer_sync_semaphore = xSemaphoreCreateBinaryStatic(&semaphore_buffer);
+  if (ringbuffer_sync_semaphore != NULL) {
+    xSemaphoreGive(ringbuffer_sync_semaphore);
+  }
 
   bool is_nvs_available = init_nvs_memory();
   if (is_nvs_available) { // Here comes all the code that needs NVS particular

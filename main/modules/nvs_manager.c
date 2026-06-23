@@ -258,11 +258,9 @@ static void save_wifi_credentials(nvs_handle_t handle, const char *ssid,
 
 void setup_wlan_interactive(void) {
 
-  // 1. Abfrage direkt am Anfang
   printf("\n>>> WLAN-Setup starten? (y/n): ");
 
   char response[4];
-  // Wir nutzen deine bewährte terminal_input_task für den Input
   terminal_input_task("Eingabe: ", response, sizeof(response), false);
 
   // 2. Logik: Wenn nicht 'y', dann einfach die Funktion verlassen
@@ -270,11 +268,11 @@ void setup_wlan_interactive(void) {
     ESP_LOGI("WLAN", "WLAN-Setup übersprungen.");
     return;
   }
-  // 1. Netzwerk-Interface anlegen (zwingend erforderlich für LwIP)
+  // Netzwerk-Interface anlegen (zwingend erforderlich für LwIP)
   esp_netif_t *sta_netif = esp_netif_create_default_wifi_sta();
   assert(sta_netif);
 
-  // 2. Wi-Fi Hardware mit Standardkonfiguration booten
+  //  Wi-Fi Hardware mit Standardkonfiguration booten
   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
   ESP_ERROR_CHECK(esp_wifi_init(&cfg));
   ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
