@@ -133,17 +133,20 @@ void idle_monitor_task(void *pvParameters) {
                "\n--------------------------------------------------\n"
                "| System-Statistik   | Core 0     | Core 1       |\n"
                "--------------------------------------------------\n"
-               "| Letzte 5s (Loops)  | %-10" PRIu32 " | %-10" PRIu32 " |\n"
-               "| Gesamt    (Loops)  | %-10" PRIu32 " | %-10" PRIu32 " |\n"
+               "| Letzte 5s (Loops)  | %-10" PRIu32 " | %-10" PRIu32 "   |\n"
+               "| Gesamt    (Loops)  | %-10" PRIu32 " | %-10" PRIu32 "   |\n"
                "--------------------------------------------------\n"
-               "| Sensor-Latenz      | %-7lu ms | -            |\n"
-               "| HMM-Rechenzeit     | -          | %-7lu ms   |\n"
+               "| Sensor-Latenz      | %-7" PRIu32 " ms |   -          |\n"
+               "| HMM-Rechenzeit     |   -        | %-7" PRIu32 "ms    |\n"
                "--------------------------------------------------\n"
-               "| RAM: Free: %-8" PRIu32 " | Min ever: %-10" PRIu32 " |\n"
+               "| RAM: Free: %-8" PRIu32 "|     Min ever: %-10" PRIu32 "  |\n"
                "--------------------------------------------------",
                count_core_0_set, count_core_1_set, current_core_0,
                current_core_1, last_sensor_duration_ms, last_hmm_duration_ms,
                free_ram, min_ever_ram);
+
+      last_hmm_duration_ms = 0;
+      last_sensor_duration_ms = 0;
 
       xSemaphoreGive(terminal_mutex);
     }

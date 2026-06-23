@@ -56,7 +56,7 @@ void dummy_buffer_load_task(void *pvParameters) {
     }
 
     // Dauer berechnen (Mikrosekunden in Millisekunden) und global speichern
-    last_sensor_duration_ms =
+    last_sensor_duration_ms +=
         (uint32_t)((esp_timer_get_time() - start_time) / 1000);
   }
 }
@@ -90,7 +90,7 @@ void dummy_hmm_task(void *pvParameters) {
 
       if (total_bytes_processed >= 4096) {
         // Dauer berechnen und global speichern
-        last_hmm_duration_ms =
+        last_hmm_duration_ms +=
             (uint32_t)((esp_timer_get_time() - sequence_start_time) / 1000);
 
         total_bytes_processed = 0;

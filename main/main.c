@@ -48,8 +48,9 @@ void app_main(void) {
   xTaskCreate(idle_monitor_task, "IdleMonitor", 2048, NULL, 1, NULL);
   // xTaskCreatePinnedToCore(dummy_load_task, "DummyTask", 2048, NULL, 1, NULL,
   // 1);
-  xTaskCreate(dummy_buffer_load_task, "SensorTask", 4096, NULL, 5, NULL);
-  xTaskCreate(dummy_hmm_task, "HMMTask", 4096, NULL, 5, NULL);
+  xTaskCreatePinnedToCore(dummy_buffer_load_task, "SensorTask", 4096, NULL, 5,
+                          NULL, 0);
+  xTaskCreatePinnedToCore(dummy_hmm_task, "HMMTask", 4096, NULL, 5, NULL, 1);
 
   ESP_LOGI(TAG, "All tasks created!");
 }
