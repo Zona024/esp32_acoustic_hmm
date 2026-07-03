@@ -16,6 +16,7 @@ SemaphoreHandle_t terminal_mutex = NULL;
 StaticSemaphore_t semaphore_buffer;
 SemaphoreHandle_t ringbuffer_sync_semaphore;
 
+// volatile here so the compiler doesnt notice dummy data is useless
 volatile uint32_t last_sensor_duration_ms = 0;
 volatile uint32_t last_hmm_duration_ms = 0;
 volatile uint32_t idle_counters[2] = {0, 0};
@@ -24,8 +25,6 @@ char password_buffer[64];
 
 void app_main(void) {
   terminal_mutex = xSemaphoreCreateMutex();
-  // Für static semaphore muss vorher ein speicher reserviert werden
-  // (semaphore_buffer)
   ringbuffer_sync_semaphore = xSemaphoreCreateBinaryStatic(&semaphore_buffer);
   if (ringbuffer_sync_semaphore != NULL) {
     xSemaphoreGive(ringbuffer_sync_semaphore);
@@ -40,8 +39,6 @@ void app_main(void) {
   } else {
     ESP_LOGW(TAG, "Non-Volatile Storage not accesible!");
   }
-
-  // Ringbuffer initialisieren
   init_ringbuffer();
 
   ESP_LOGI(TAG, "Starting the main execution loop...");

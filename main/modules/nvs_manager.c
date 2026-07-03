@@ -38,7 +38,7 @@ void count_reboots(void) {
   // Namespace steht!!
   err = nvs_open("storage", NVS_READWRITE, &my_handle);
   if (err != ESP_OK) {
-    ESP_LOGE("NVS", "Fehler beim Öffnen des NVS-Handles!");
+    ESP_LOGE("NVS", "Error opening NVS storage");
     return;
   }
 
@@ -48,29 +48,29 @@ void count_reboots(void) {
   // return instead of break in Fatal cases so the ESP doesnt shut down
   switch (err) {
   case ESP_OK:
-    ESP_LOGI("NVS", "Zähler erfolgreich geladen.");
+    ESP_LOGI("NVS", "Reboot counter successfully loaded!");
     break;
 
   case ESP_ERR_NVS_NOT_FOUND:
-    ESP_LOGW("NVS", "Key nicht gefunden. Initialisiere Zähler mit 0.");
+    ESP_LOGW("NVS", "No reboot counter found, setting one at 0.");
     restart_counter = 0; // Zustand sicherstellen
     break;
 
   case ESP_ERR_NVS_NOT_INITIALIZED:
-    ESP_LOGE("NVS", "Fataler Fehler: NVS-Treiber ist nicht initialisiert!");
+    ESP_LOGE("NVS", "Fatal error, NVS storage not initialized!");
     nvs_close(my_handle);
     return; // Funktion sofort abbrechen, um Folgeschäden zu verhindern
 
   default:
     // Übersetzt alle anderen exotischen Fehlercodes (wie PAGE_FULL) in lesbaren
     // Text
-    ESP_LOGE("NVS", "Unerwarteter NVS-Fehler: %s", esp_err_to_name(err));
+    ESP_LOGE("NVS", "Unexpected NVS Error: %s", esp_err_to_name(err));
     nvs_close(my_handle);
     return;
   }
   // Wert erhöhen und in der Konsole ausgeben
   restart_counter++;
-  ESP_LOGI("NVS", "Der ESP32 wurde %" PRIu32 "mal gestartet.", restart_counter);
+  ESP_LOGI("NVS", "the ESP restarted %" PRIu32 "times.", restart_counter);
 
   // 3. Schreiben: Den neuen Wert in den Speicher legen
   err = nvs_set_u32(my_handle, "restart_count", restart_counter);
@@ -83,6 +83,7 @@ void count_reboots(void) {
   nvs_close(my_handle);
 }
 
+// Looks up which Core enters the IdleTask and counts up each time
 void vApplicationIdleHook(void) {
   // which core is currently running this hook?
   int core_id = xPortGetCoreID();
@@ -103,6 +104,8 @@ void dummy_load_task(void *pvParameters) {
   }
 }
 
+// Function shows RAM usage and CPU usage per Core for monitoring efficiency and
+// also memory leaks
 void idle_monitor_task(void *pvParameters) {
   // Diese Variablen speichern die Zählerstände des vorherigen Durchlaufs (vor 5
   // Sekunden)
@@ -110,7 +113,6 @@ void idle_monitor_task(void *pvParameters) {
   uint32_t prev_core_1 = 0;
 
   while (1) {
-    // 5 Sekunden warten
     vTaskDelay(pdMS_TO_TICKS(5000));
 
     // 1. Live-Snapshot der RAM-Werte und globalen Idle-Zähler abrufen
@@ -136,8 +138,8 @@ void idle_monitor_task(void *pvParameters) {
                "| Letzte 5s (Loops)  | %-10" PRIu32 " | %-10" PRIu32 "   |\n"
                "| Gesamt    (Loops)  | %-10" PRIu32 " | %-10" PRIu32 "   |\n"
                "--------------------------------------------------\n"
-               "| Sensor-Latenz      | %-7" PRIu32 " ms |   -          |\n"
-               "| HMM-Rechenzeit     |   -        | %-7" PRIu32 "ms    |\n"
+               "| Sensor-Latenz      | %-7" PRIu32 " ms |  -           |\n"
+               "| HMM-Rechenzeit     |  -         | %-7" PRIu32 "ms    |\n"
                "--------------------------------------------------\n"
                "| RAM: Free: %-8" PRIu32 "|     Min ever: %-10" PRIu32 "  |\n"
                "--------------------------------------------------",
@@ -153,6 +155,7 @@ void idle_monitor_task(void *pvParameters) {
   }
 }
 
+// Wiederverwendbare funktion um input übers terminal abzufragen
 void terminal_input_task(const char *prompt_text, char *output_buffer,
                          size_t max_len, bool is_password) {
   int rx_count = 0;
@@ -264,36 +267,35 @@ static void save_wifi_credentials(nvs_handle_t handle, const char *ssid,
 
 void setup_wlan_interactive(void) {
 
-  printf("\n>>> WLAN-Setup starten? (y/n): ");
+  printf("\n>>> Start WLAN-Setup? (y/n): ");
 
   char response[4];
-  terminal_input_task("Eingabe: ", response, sizeof(response), false);
+  terminal_input_task("Input: ", response, sizeof(response), false);
 
-  // 2. Logik: Wenn nicht 'y', dann einfach die Funktion verlassen
+  // 2. If not y than leave function
   if (response[0] != 'y' && response[0] != 'Y') {
-    ESP_LOGI("WLAN", "WLAN-Setup übersprungen.");
+    ESP_LOGI("WLAN", "WLAN-Setup skipped.");
     return;
   }
-  // Netzwerk-Interface anlegen (zwingend erforderlich für LwIP)
+  // Network Interface -> needed for LwIP
   esp_netif_t *sta_netif = esp_netif_create_default_wifi_sta();
   assert(sta_netif);
 
-  //  Wi-Fi Hardware mit Standardkonfiguration booten
+  // Open Wifi hardware with standard configs
   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
   ESP_ERROR_CHECK(esp_wifi_init(&cfg));
   ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
   ESP_ERROR_CHECK(esp_wifi_start());
 
-  // 3. Scan konfigurieren (0 = alle Kanäle, aktiver Scan)
   wifi_scan_config_t scan_config = {
       .ssid = 0, .bssid = 0, .channel = 0, .show_hidden = false};
 
-  ESP_LOGI("WLAN", "Starte WLAN-Scan...");
+  ESP_LOGI("WLAN", "Starting WLAN-Scan...");
 
-  // Blockierender Aufruf: CPU wartet hier, bis der Hardware-Scan beendet ist
+  // Blocking call: CPU waits until Scan has ended
   ESP_ERROR_CHECK(esp_wifi_scan_start(&scan_config, true));
 
-  // 4. Anzahl gefundener APs abfragen
+  // 3. Get amount of found APs
   uint16_t ap_count = 0;
   ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
 
@@ -303,7 +305,7 @@ void setup_wlan_interactive(void) {
     return;
   }
 
-  // 5. Speicher für Ergebnisse im Heap allozieren
+  // 4. Heap storage for AP list results
   wifi_ap_record_t *ap_records =
       (wifi_ap_record_t *)malloc(sizeof(wifi_ap_record_t) * ap_count);
   if (ap_records == NULL) {
@@ -313,10 +315,10 @@ void setup_wlan_interactive(void) {
 
   ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&ap_count, ap_records));
 
-  // 6. Liste formatiert ausgeben (Mutex schützt den UART-Block)
+  // 5. Formating list and output (Mutex for Terminal  print Acess)
   if (xSemaphoreTake(terminal_mutex, portMAX_DELAY) == pdTRUE) {
     printf("\n========================================\n");
-    printf("           GEFUNDENE NETZWERKE          \n");
+    printf("           FOUND NETWORKS          \n");
     printf("========================================\n");
     for (int i = 0; i < ap_count; i++) {
       printf("[%2d] %-20s (%d dBm)\n", i + 1, ap_records[i].ssid,
@@ -326,12 +328,12 @@ void setup_wlan_interactive(void) {
     xSemaphoreGive(terminal_mutex);
   }
 
-  // 7. Nutzereingabe: AP-Nummer wählen (mit Validierungsschleife)
+  // 6.User choice of AP
   int selected_idx = -1;
   char input_buffer[10];
 
   while (selected_idx < 1 || selected_idx > ap_count) {
-    terminal_input_task("---> Wähle die Nummer des Netzwerks: ", input_buffer,
+    terminal_input_task("---> Choose Access Point Number: ", input_buffer,
                         sizeof(input_buffer), false);
     selected_idx = atoi(input_buffer);
 
@@ -346,14 +348,14 @@ void setup_wlan_interactive(void) {
   strncpy(selected_ssid, (char *)ap_records[selected_idx - 1].ssid, 32);
   free(ap_records);
 
-  ESP_LOGI("WLAN", "Gewähltes Netzwerk: %s", selected_ssid);
+  ESP_LOGI("WLAN", "Choosen Network: %s", selected_ssid);
 
   char password_buffer[64] = {0};
   bool pass_found = false;
   nvs_handle_t my_handle;
   bool nvs_opened = (nvs_open("storage", NVS_READWRITE, &my_handle) == ESP_OK);
 
-  // Prüfen ob das Passwort bereits in der Historie existiert
+  // Check in case the password is already in NVS
   if (nvs_opened) {
     pass_found =
         get_saved_wifi_password(my_handle, selected_ssid, password_buffer);
@@ -362,22 +364,19 @@ void setup_wlan_interactive(void) {
   if (pass_found) {
     ESP_LOGI("WLAN", "Passwort erfolgreich aus der NVS-Historie geladen.");
   } else {
-    // 9. Nutzereingabe: Passwort abfragen (mit Sternchen)
     terminal_input_task("---> Passwort eingeben: ", password_buffer,
                         sizeof(password_buffer), true);
 
-    // Neues Netzwerk in den Ringpuffer speichern
     if (nvs_opened) {
       save_wifi_credentials(my_handle, selected_ssid, password_buffer);
     }
   }
 
-  // NVS-Handle sauber schließen
   if (nvs_opened) {
     nvs_close(my_handle);
   }
 
-  // 10. Konfiguration setzen und Verbindungsaufbau starten
+  // 7. Configuring and Connecting Wifi
   wifi_config_t wifi_config = {0};
   strncpy((char *)wifi_config.sta.ssid, selected_ssid, 32);
   strncpy((char *)wifi_config.sta.password, password_buffer, 64);
@@ -387,5 +386,5 @@ void setup_wlan_interactive(void) {
   ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
   ESP_ERROR_CHECK(esp_wifi_connect());
 
-  ESP_LOGI("WLAN", "Verbindung zu %s wird aufgebaut...", selected_ssid);
+  ESP_LOGI("WLAN", "Connecting to %s...", selected_ssid);
 }

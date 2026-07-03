@@ -14,14 +14,12 @@
 
 #define SIMULATED_PROCESSING_TIME_US 5000
 
-// statischer speicher für Audiodaten
 static uint8_t audio_buffer_storage[AUDIO_BUFFER_SIZE];
-//
 static StaticRingbuffer_t audio_buffer_ring;
 RingbufHandle_t audio_buffer_handle = NULL;
 
 // initilizing static ring buffer to be used for Sensor byte stream data to be
-// handled by the HMM
+// handled by the HMM classifier
 void init_ringbuffer(void) {
   audio_buffer_handle =
       xRingbufferCreateStatic(AUDIO_BUFFER_SIZE, RINGBUF_TYPE_BYTEBUF,
@@ -38,7 +36,6 @@ void dummy_buffer_load_task(void *pvParameters) {
   while (1) {
     xSemaphoreTake(ringbuffer_sync_semaphore, portMAX_DELAY);
 
-    // Startzeitpunkt messen
     int64_t start_time = esp_timer_get_time();
 
     float current_freq = is_high_freq ? 880.0f : 440.0f;
@@ -55,7 +52,6 @@ void dummy_buffer_load_task(void *pvParameters) {
                       pdMS_TO_TICKS(100));
     }
 
-    // Dauer berechnen (Mikrosekunden in Millisekunden) und global speichern
     last_sensor_duration_ms +=
         (uint32_t)((esp_timer_get_time() - start_time) / 1000);
   }
@@ -82,14 +78,12 @@ void dummy_hmm_task(void *pvParameters) {
         dummy_feature += received_data[i];
       }
 
-      // Deine konfigurierte Dummy-Rechenlast
       esp_rom_delay_us(SIMULATED_PROCESSING_TIME_US);
 
       total_bytes_processed += item_size;
       vRingbufferReturnItem(audio_buffer_handle, (void *)received_data);
 
       if (total_bytes_processed >= 4096) {
-        // Dauer berechnen und global speichern
         last_hmm_duration_ms +=
             (uint32_t)((esp_timer_get_time() - sequence_start_time) / 1000);
 
