@@ -3,6 +3,7 @@
 #include "esp_log.h"
 #include "esp_wifi.h"
 #include "freertos/idf_additions.h"
+#include "mqtt_client.h"
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "sensor_manager.h"
@@ -387,4 +388,21 @@ void setup_wlan_interactive(void) {
   ESP_ERROR_CHECK(esp_wifi_connect());
 
   ESP_LOGI("WLAN", "Connecting to %s...", selected_ssid);
+}
+
+esp_mqtt_client_handle_t start_mqtt_client(void) {
+  char uri_buffer[64];
+  terminal_input_task("Type MQTT broker address uri: ", uri_buffer,
+                      sizeof(uri_buffer), false);
+
+  const esp_mqtt_client_config_t mqtt_config = {
+      .broker.address.uri = uri_buffer,
+      .credentials.client_id = "esp32_acoustic_node",
+      .session.disable_clean_session = false};
+
+  // Creates MQTT client handle based on the configuration. Returns:
+  // mqtt_client_handle if successfully created, NULL on error
+  esp_mqtt_client_handle_t client = esp_mqtt_client_init(&mqtt_config);
+  esp_mqtt_client_start(client);
+  return client;
 }

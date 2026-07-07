@@ -3,6 +3,7 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "mqtt_client.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -17,5 +18,6 @@ void idle_monitor_task(void *pvParameters);
 void terminal_input_task(const char *prompt_text, char *output_buffer,
                          size_t max_len, bool is_password);
 void setup_wlan_interactive(void);
+esp_mqtt_client_handle_t start_mqtt_client(void);
 
 #endif // NVS_MANAGER_H
