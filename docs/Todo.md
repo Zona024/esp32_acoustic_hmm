@@ -1,5 +1,9 @@
 # **Todo-List: ESP32 Edge Acoustic Classifier**
 
+## Most urgent
+
+* [ ] Make event handler to know if the wifi connection worked and only than save the password
+
 ## **System Core & FreeRTOS**
 
 * [x] Implement basic main app skeleton

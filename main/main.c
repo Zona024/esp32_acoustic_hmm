@@ -20,8 +20,6 @@ SemaphoreHandle_t ringbuffer_sync_semaphore;
 volatile uint32_t last_sensor_duration_ms = 0;
 volatile uint32_t last_hmm_duration_ms = 0;
 volatile uint32_t idle_counters[2] = {0, 0};
-char selection_buffer[10];
-char password_buffer[64];
 
 void app_main(void) {
   terminal_mutex = xSemaphoreCreateMutex();
