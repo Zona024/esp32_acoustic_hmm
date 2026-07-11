@@ -3,6 +3,7 @@
 #include "esp_log.h"
 #include "esp_wifi.h"
 #include "freertos/idf_additions.h"
+#include "freertos/projdefs.h"
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "sensor_manager.h"
@@ -12,10 +13,30 @@
 #include <string.h>
 
 #define MAX_WIFI_HISTORY 3
-// 0 = Connecting, 1 = Connected Successfully, 2 = Connection Failed
-static volatile int wifi_status = 0;
 
 static const char *TAG2 = "IDLE_COUNT";
+
+void system_ip_handler(void *arg, esp_event_base_t base, int32_t id,
+                       void *data) {
+
+  if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
+    // Set the global bit so xEventGroupWaitBits unblocks instantly!
+    xEventGroupSetBits(global_system_event_group,
+                       SYS_STATUS_WIFI_CONNECTED_BIT);
+  }
+
+  else if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED) {
+    // Router dropped! Clear the permanent flag instantly
+    xEventGroupClearBits(global_system_event_group,
+                         SYS_STATUS_WIFI_CONNECTED_BIT);
+
+    // wifi_event_sta_disconnected_t *event = data;
+    // ESP_LOGE("WIFI", "Disconnected. reason=%d", event->reason);
+
+    // Tell the hardware to try re-establishing the link automatically
+    esp_wifi_connect();
+  }
+}
 
 bool init_nvs_memory(void) {
   esp_err_t init_err = nvs_flash_init();
@@ -275,17 +296,6 @@ static void save_wifi_credentials(nvs_handle_t handle, const char *ssid,
   ESP_LOGI("WLAN", "New network saved in the NVS!");
 }
 
-static void wifi_event_handler(void *arg, esp_event_base_t event_base,
-                               int32_t event_id, void *event_data) {
-  if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
-    wifi_status = 1; // It worked!
-  } else if (event_base == WIFI_EVENT &&
-             event_id == WIFI_EVENT_STA_DISCONNECTED) {
-    // You can add your retry logic here if you want, but if it flat out fails:
-    wifi_status = 2; // It failed!
-  }
-}
-
 void setup_wlan_interactive(void) {
 
   printf("\n>>> Start WLAN-Setup? (y/n): ");
@@ -389,31 +399,42 @@ void setup_wlan_interactive(void) {
     terminal_input_task("---> Enter password: ", password_buffer,
                         sizeof(password_buffer), true);
   }
-  // close the NVS access
-  if (nvs_opened) {
-    nvs_close(my_handle);
-  }
 
   // setting up Wifi configuration
-  wifi_config_t wifi_config = {0};
+  // Direct structural initialization like {0} can leave internal component
+  // configurations or union definitions unassigned or set to unstable modes
+  // in some versions of ESP-IDF there fore memset is used
+  wifi_config_t wifi_config;
+  memset(&wifi_config, 0, sizeof(wifi_config_t));
   strncpy((char *)wifi_config.sta.ssid, selected_ssid, 32);
   strncpy((char *)wifi_config.sta.password, password_buffer, 64);
-  wifi_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
-  wifi_status = 0; // Reset status to "Connecting"
+  wifi_config.sta.threshold.authmode = WIFI_AUTH_WPA_WPA2_PSK;
+  wifi_config.sta.pmf_cfg.capable = true;
+  wifi_config.sta.pmf_cfg.required = false;
   ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
+  xEventGroupClearBits(global_system_event_group,
+                       SYS_STATUS_WIFI_CONNECTED_BIT);
   ESP_ERROR_CHECK(esp_wifi_connect());
   ESP_LOGI("WLAN", "Connecting to %s...", selected_ssid);
-  while (wifi_status == 0) {
-    vTaskDelay(pdMS_TO_TICKS(1000));
-  }
-  if (wifi_status == 1) {
-    ESP_LOGI("WLAN", "Connection successful! Saving credentials...");
+
+  EventBits_t bits = xEventGroupWaitBits(global_system_event_group,
+                                         SYS_STATUS_WIFI_CONNECTED_BIT, pdFALSE,
+                                         pdTRUE, pdMS_TO_TICKS(15000));
+  if (bits & SYS_STATUS_WIFI_CONNECTED_BIT) {
+    printf("Success! Safe connection confirmed.\n");
     if (nvs_opened && !pass_found) {
       save_wifi_credentials(my_handle, selected_ssid, password_buffer);
     }
   } else {
-    ESP_LOGE("WLAN", "Connection failed. Credentials not saved.");
-    esp_wifi_disconnect();
+    printf("\nConnection timed out. Wrong password? Credentials not saved.\n");
+    ESP_LOGW("WLAN", "Shutting down Wi-Fi hardware due to failure.");
+    esp_wifi_disconnect(); // Force stop the background reconnect loop
+    esp_wifi_stop();       // Power down the Wi-Fi radio
+
+    // Note: We do not call esp_wifi_deinit() or destroy the netif,
+    // as those are system-level teardowns that aren't strictly necessary
+    // just to stop the radio, and can cause crashes if other modules are
+    // looking for them.
   }
 
   if (nvs_opened) {
