@@ -48,6 +48,9 @@ void app_main(void) {
   }
   init_ringbuffer();
 
+  idle_counters[0] = 0; 
+  idle_counters[1] = 0;
+
   ESP_LOGI(TAG, "Starting the main execution loop...");
   xTaskCreate(idle_monitor_task, "IdleMonitor", 2048, NULL, 1, NULL);
   // xTaskCreatePinnedToCore(dummy_load_task, "DummyTask", 2048, NULL, 1, NULL,
